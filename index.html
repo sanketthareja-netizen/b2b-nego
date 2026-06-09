@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Negotiation Desk · Wholesale Procurement</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#F4F1E8; --card:#FCFBF7; --card-2:#F8F5EC;
+    --ink:#1A1714; --ink-soft:#5C5852; --ink-faint:#8A847A;
+    --line:#E0DACB; --line-strong:#D2CAB6;
+    --ra:#1F6F5C; --ra-bg:#E7F0EC;
+    --pricing:#A14A2A; --pricing-bg:#F3E6DD;
+    --alert:#B3261E; --alert-bg:#F6E3E1;
+    --good:#2E6B3E; --good-bg:#E5EEE6;
+    --amber:#9A6B1C; --amber-bg:#F3EAD6;
+    --lost:#8A847A;
+    --mono:'JetBrains Mono',ui-monospace,monospace;
+    --disp:'Fraunces',Georgia,serif;
+    --ui:'Inter',system-ui,sans-serif;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{background:var(--bg);color:var(--ink);font-family:var(--ui);font-size:14px;line-height:1.45;
+    -webkit-font-smoothing:antialiased;padding-bottom:40px}
+  .mono{font-family:var(--mono);font-variant-numeric:tabular-nums}
+  button{font-family:var(--ui);cursor:pointer;border:none;background:none;color:inherit}
+  input,select,textarea{font-family:var(--ui);font-size:13px;color:var(--ink)}
+
+  /* ---- Top bar ---- */
+  header{border-bottom:1px solid var(--line-strong);background:var(--card);padding:14px 22px;
+    display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap;position:sticky;top:0;z-index:30}
+  .brand{display:flex;align-items:baseline;gap:12px}
+  .brand h1{font-family:var(--disp);font-weight:600;font-size:20px;letter-spacing:-.01em}
+  .brand .tag{font-size:11px;text-transform:uppercase;letter-spacing:.14em;color:var(--ink-faint)}
+  .controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .seg{display:flex;border:1px solid var(--line-strong);border-radius:3px;overflow:hidden}
+  .seg button{padding:6px 13px;font-size:12px;font-weight:500;color:var(--ink-soft);border-right:1px solid var(--line)}
+  .seg button:last-child{border-right:none}
+  .seg button.on{background:var(--ink);color:var(--bg)}
+  select.region{padding:6px 9px;border:1px solid var(--line-strong);border-radius:3px;background:var(--card);font-size:12px}
+  .btn-primary{padding:7px 14px;background:var(--ink);color:var(--bg);border-radius:3px;font-size:12px;font-weight:600}
+  .btn-primary:hover{opacity:.88}
+  .sync{display:flex;align-items:center;gap:7px;font-size:11px;color:var(--ink-faint)}
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--ink-faint)}
+  .dot.ok{background:var(--good)} .dot.err{background:var(--alert)} .dot.busy{background:var(--amber);animation:pulse 1s infinite}
+  @keyframes pulse{50%{opacity:.3}}
+  .sync button{font-size:11px;text-decoration:underline;color:var(--ink-soft)}
+
+  /* ---- KPI strip ---- */
+  .kpis{display:flex;gap:0;border-bottom:1px solid var(--line-strong);background:var(--card-2)}
+  .kpi{flex:1;padding:13px 20px;border-right:1px solid var(--line)}
+  .kpi:last-child{border-right:none}
+  .kpi .v{font-family:var(--mono);font-size:24px;font-weight:600;letter-spacing:-.02em}
+  .kpi .l{font-size:10px;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-faint);margin-top:2px}
+  .kpi.warn .v{color:var(--alert)} .kpi.amber .v{color:var(--amber)} .kpi.good .v{color:var(--good)}
+
+  /* ---- layout ---- */
+  .wrap{display:grid;grid-template-columns:minmax(0,1fr) 420px;gap:0;align-items:start}
+  @media(max-width:980px){.wrap{grid-template-columns:1fr}}
+  .list-pane{padding:18px 22px}
+  .detail-pane{border-left:1px solid var(--line-strong);background:var(--card);min-height:calc(100vh - 130px);padding:18px 20px;position:sticky;top:130px}
+  @media(max-width:980px){.detail-pane{border-left:none;border-top:1px solid var(--line-strong);position:static;min-height:0}}
+
+  .sec-h{font-size:11px;text-transform:uppercase;letter-spacing:.13em;color:var(--ink-faint);margin:4px 0 12px;display:flex;justify-content:space-between;align-items:center}
+
+  /* ---- negotiation rows ---- */
+  table{width:100%;border-collapse:collapse}
+  thead th{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-faint);text-align:left;
+    padding:7px 10px;border-bottom:1px solid var(--line-strong);font-weight:600}
+  thead th.num{text-align:right}
+  tbody tr{border-bottom:1px solid var(--line);cursor:pointer}
+  tbody tr:hover{background:var(--card)}
+  tbody tr.sel{background:var(--card);box-shadow:inset 3px 0 0 var(--ink)}
+  td{padding:9px 10px;vertical-align:middle}
+  td.num{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+  .appid{font-family:var(--mono);font-weight:600;font-size:12px}
+  .car{font-size:12px;color:var(--ink-soft);margin-top:1px}
+  .pill{display:inline-block;padding:2px 8px;border-radius:99px;font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;white-space:nowrap}
+  .pill.ask{background:var(--ra-bg);color:var(--ra)}
+  .pill.offer{background:var(--pricing-bg);color:var(--pricing)}
+  .pill.countering{background:var(--amber-bg);color:var(--amber)}
+  .pill.agreed{background:var(--good-bg);color:var(--good)}
+  .pill.lost{background:#EEE9DE;color:var(--lost)}
+  .pill.new{background:#E6ECF2;color:#3E5C78}
+  .turn{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.05em}
+  .turn.ra{color:var(--ra)} .turn.pricing{color:var(--pricing)} .turn.none{color:var(--ink-faint)}
+  .age{font-size:11px;color:var(--ink-faint)}
+  .age.stale{color:var(--alert);font-weight:600}
+  .gap-cell{font-weight:600}
+
+  .empty{padding:40px 10px;text-align:center;color:var(--ink-faint);font-size:13px}
+
+  /* ---- detail ---- */
+  .d-empty{color:var(--ink-faint);font-size:13px;padding-top:30px;text-align:center}
+  .d-head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:4px}
+  .d-appid{font-family:var(--mono);font-size:16px;font-weight:600}
+  .d-car{font-size:12px;color:var(--ink-soft)}
+  .d-meta{display:flex;gap:14px;flex-wrap:wrap;margin:10px 0 14px;font-size:11px;color:var(--ink-faint)}
+  .d-meta b{color:var(--ink);font-weight:600}
+  .gap-banner{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;background:var(--card-2);border:1px solid var(--line);border-radius:3px;margin-bottom:14px}
+  .gap-banner .lab{font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-faint)}
+  .gap-banner .val{font-family:var(--mono);font-size:18px;font-weight:600}
+
+  /* ladder */
+  .ladder{display:flex;flex-direction:column;gap:8px;margin-bottom:16px;max-height:300px;overflow-y:auto;padding-right:4px}
+  .step{display:flex;flex-direction:column;max-width:78%}
+  .step.ra{align-self:flex-start;align-items:flex-start}
+  .step.pricing{align-self:flex-end;align-items:flex-end}
+  .bubble{padding:7px 11px;border-radius:3px;border:1px solid}
+  .step.ra .bubble{background:var(--ra-bg);border-color:#CADfd7}
+  .step.pricing .bubble{background:var(--pricing-bg);border-color:#E6CdBf}
+  .bubble .who{font-size:9px;text-transform:uppercase;letter-spacing:.1em;font-weight:600;opacity:.7}
+  .step.ra .who{color:var(--ra)} .step.pricing .who{color:var(--pricing)}
+  .bubble .price{font-family:var(--mono);font-size:16px;font-weight:600}
+  .bubble .delta{font-family:var(--mono);font-size:11px;opacity:.7}
+  .bubble .note{font-size:11px;color:var(--ink-soft);margin-top:2px;font-style:italic}
+  .step .ts{font-size:9px;color:var(--ink-faint);margin-top:2px}
+
+  /* action box */
+  .actions{border-top:1px solid var(--line);padding-top:14px}
+  .turn-banner{padding:8px 11px;border-radius:3px;font-size:12px;font-weight:600;margin-bottom:12px}
+  .turn-banner.ra{background:var(--ra-bg);color:var(--ra)}
+  .turn-banner.pricing{background:var(--pricing-bg);color:var(--pricing)}
+  .turn-banner.none{background:#EEE9DE;color:var(--ink-soft)}
+  .entry-row{display:flex;gap:8px;margin-bottom:8px}
+  .entry-row input.price{flex:1;padding:8px 10px;border:1px solid var(--line-strong);border-radius:3px;font-family:var(--mono);font-size:14px}
+  .entry-row .submit{padding:8px 14px;border-radius:3px;font-weight:600;font-size:12px;color:#fff}
+  .entry-row .submit.ra{background:var(--ra)} .entry-row .submit.pricing{background:var(--pricing)}
+  .note-in{width:100%;padding:7px 10px;border:1px solid var(--line);border-radius:3px;font-size:12px;margin-bottom:10px;resize:vertical}
+  .close-row{display:flex;gap:8px}
+  .close-row button{flex:1;padding:8px;border:1px solid var(--line-strong);border-radius:3px;font-size:12px;font-weight:600}
+  .close-row .agree{color:var(--good);border-color:#BcD4C0}
+  .close-row .lose{color:var(--lost)}
+  .close-row button:hover{background:var(--card-2)}
+  .ceiling-row{display:flex;align-items:center;gap:8px;margin:10px 0;font-size:11px;color:var(--ink-faint)}
+  .ceiling-row input{width:120px;padding:6px 8px;border:1px solid var(--line);border-radius:3px;font-family:var(--mono);font-size:12px}
+  .hint-internal{font-size:10px;color:var(--ink-faint)}
+
+  /* digest */
+  .digest{margin:20px 22px 0;border:1px solid var(--line-strong);border-radius:4px;background:var(--card);overflow:hidden}
+  .digest-h{padding:10px 16px;border-bottom:1px solid var(--line);font-size:11px;text-transform:uppercase;letter-spacing:.12em;color:var(--ink-soft);display:flex;justify-content:space-between;align-items:center;background:var(--card-2)}
+  .digest-h .cnt{color:var(--alert);font-weight:700}
+  .digest-body{padding:6px 16px 14px}
+  .digest-region{padding:9px 0;border-bottom:1px dashed var(--line)}
+  .digest-region:last-child{border-bottom:none}
+  .digest-region .rn{font-weight:600;font-size:12px;margin-bottom:3px}
+  .digest-region .ids{font-family:var(--mono);font-size:11px;color:var(--ink-soft)}
+  .digest-empty{padding:14px 16px;color:var(--ink-faint);font-size:12px}
+
+  /* modal */
+  .overlay{position:fixed;inset:0;background:rgba(26,23,20,.4);display:none;align-items:flex-start;justify-content:center;z-index:50;padding:60px 16px}
+  .overlay.on{display:flex}
+  .modal{background:var(--card);border-radius:5px;width:100%;max-width:480px;border:1px solid var(--line-strong);box-shadow:0 16px 40px rgba(0,0,0,.18)}
+  .modal-h{padding:16px 20px;border-bottom:1px solid var(--line);font-family:var(--disp);font-weight:600;font-size:17px;display:flex;justify-content:space-between;align-items:center}
+  .modal-h button{font-size:20px;color:var(--ink-faint)}
+  .modal-b{padding:18px 20px;display:grid;gap:12px}
+  .fld label{display:block;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:var(--ink-faint);margin-bottom:4px}
+  .fld input,.fld select{width:100%;padding:8px 10px;border:1px solid var(--line-strong);border-radius:3px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+  .modal-f{padding:14px 20px;border-top:1px solid var(--line);display:flex;justify-content:flex-end;gap:10px}
+  .modal-f .cancel{padding:8px 14px;font-size:12px;color:var(--ink-soft)}
+  .imp-summary{padding:10px 12px;background:var(--card-2);border:1px solid var(--line);border-radius:3px;font-size:12px;color:var(--ink-soft)}
+  .imp-summary b{color:var(--ink);font-family:var(--mono)}
+  .imp-summary.err{background:var(--alert-bg);color:var(--alert);border-color:#E6C4C0}
+  .imp-note{font-size:11px;color:var(--ink-faint);line-height:1.4}
+  .fld input[type=file]{padding:7px;font-size:12px}
+  .btn-secondary{padding:7px 14px;background:var(--card);color:var(--ink);border:1px solid var(--line-strong);border-radius:3px;font-size:12px;font-weight:600}
+  .btn-secondary:hover{background:var(--card-2)}
+
+  .toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);opacity:0;
+    background:var(--ink);color:var(--bg);padding:10px 18px;border-radius:4px;font-size:12px;z-index:90;
+    transition:.25s;pointer-events:none;max-width:90%}
+  .toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+  .toast .ico{color:#9ad1b9;margin-right:6px}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>Negotiation Desk</h1>
+    <span class="tag">Wholesale &middot; B2B Procurement</span>
+  </div>
+  <div class="controls">
+    <div class="seg" id="roleSeg">
+      <button data-role="ALL" class="on">All</button>
+      <button data-role="RA">RA view</button>
+      <button data-role="PRICING">Pricing view</button>
+    </div>
+    <select class="region" id="regionFilter"><option value="ALL">All regions</option></select>
+    <select class="region" id="raFilter"><option value="ALL">All RAs</option></select>
+    <select class="region" id="dateFilter"><option value="ALL">All inspection dates</option></select>
+    <button class="btn-secondary" id="importBtn">Import CSV</button>
+    <button class="btn-primary" id="newBtn">+ New</button>
+    <div class="sync">
+      <span class="dot" id="syncDot"></span>
+      <span id="syncTxt">loading…</span>
+      <button id="syncBtn">sync</button>
+    </div>
+  </div>
+</header>
+
+<div class="kpis" id="kpis"></div>
+
+<div class="wrap">
+  <div class="list-pane">
+    <div class="sec-h"><span id="listTitle">Open negotiations</span><span id="listCount"></span></div>
+    <table>
+      <thead><tr>
+        <th>App ID / Car</th><th>Region</th><th>Status</th>
+        <th class="num">NCD ask | TP</th><th class="num">Our offer | TP</th><th class="num">Gap</th>
+        <th class="num">Rounds</th><th>Turn</th><th class="num">Idle</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div class="empty" id="emptyList" style="display:none">No negotiations match this view.</div>
+  </div>
+
+  <div class="detail-pane" id="detail">
+    <div class="d-empty">Select a negotiation to see its history and respond.</div>
+  </div>
+</div>
+
+<div class="digest" id="digest"></div>
+
+<!-- New negotiation modal -->
+<div class="overlay" id="overlay">
+  <div class="modal">
+    <div class="modal-h">New negotiation <button id="closeModal">&times;</button></div>
+    <div class="modal-b">
+      <div class="grid2">
+        <div class="fld"><label>Appointment ID</label><input id="f_appid" placeholder="AP-XXXXXX"></div>
+        <div class="fld"><label>Region</label><select id="f_region"></select></div>
+      </div>
+      <div class="grid2">
+        <div class="fld"><label>RA name</label><input id="f_ra" placeholder="who is negotiating"></div>
+        <div class="fld"><label>RA email</label><input id="f_raemail" placeholder="for notifications"></div>
+      </div>
+      <div class="grid3">
+        <div class="fld"><label>Make</label><input id="f_make"></div>
+        <div class="fld"><label>Model</label><input id="f_model"></div>
+        <div class="fld"><label>Year</label><input id="f_year"></div>
+      </div>
+      <div class="grid2">
+        <div class="fld"><label>Odometer (km)</label><input id="f_odo" placeholder="e.g. 38000"></div>
+        <div class="fld"><label>Inspection date</label><input id="f_inspdate" placeholder="YYYY-MM-DD"></div>
+      </div>
+      <div class="grid2">
+        <div class="fld"><label>RTO code</label><input id="f_rto" placeholder="e.g. MH12"></div>
+        <div class="fld"><label>NCD owner number</label><input id="f_owner"></div>
+      </div>
+      <div class="fld"><label>Inspection report URL</label><input id="f_inspection" placeholder="https://…"></div>
+      <div class="grid2">
+        <div class="fld"><label>Target Price ₹ (internal)</label><input id="f_tp" class="mono" placeholder="optional"></div>
+        <div class="fld"><label>NCD ask price (₹)</label><input id="f_ask" class="mono" placeholder="e.g. 525000"></div>
+      </div>
+    </div>
+    <div class="modal-f">
+      <button class="cancel" id="cancelModal">Cancel</button>
+      <button class="btn-primary" id="saveModal">Create &amp; route to Pricing</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- Bulk import modal -->
+<div class="overlay" id="importOverlay">
+  <div class="modal">
+    <div class="modal-h">Bulk import inspections <button id="closeImport">&times;</button></div>
+    <div class="modal-b">
+      <p class="imp-note">Maps your export columns: <b>Appointmentid, region, RA name, RA email, make, model, year, odometer reading, inspection date, rto_code, owner number, Target Price</b>. <b>RA email</b> is needed so the RA gets notified when Pricing responds. New appointment IDs are added in <b>“Awaiting NCD ask”</b> state. IDs already in the tracker are skipped (never overwrites a live negotiation). Target Price is an internal reference, not the NCD ask.</p>
+      <div><button class="btn-secondary" id="sampleBtn" type="button">↓ Download sample CSV</button></div>
+      <div class="fld"><label>Inspection export (.csv)</label><input type="file" id="imp_file" accept=".csv,text/csv"></div>
+      <div id="imp_summary" class="imp-summary" style="display:none"></div>
+    </div>
+    <div class="modal-f">
+      <button class="cancel" id="cancelImport">Cancel</button>
+      <button class="btn-primary" id="commitImport" disabled>Import &amp; download report</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   Negotiation Desk — single-file cockpit
+   Sync: GET/POST /api/data  (Vercel Blob backed)
+   State machine per appointment ID + ping-pong history.
+   ============================================================ */
+
+const API = '/api/data';
+const STALE_MS = 24 * 60 * 60 * 1000;   // 24h
+
+let state = { meta:{lastUpdated:null}, regions:[], negotiations:[] };
+let view  = { role:'ALL', region:'ALL', raName:'ALL', insDate:'ALL', selected:null };
+
+/* ---------- seed (used only if backend empty / unreachable) ---------- */
+const SEED = {
+  meta:{lastUpdated:null},
+  regions:['NDL','NRJ','UPE','MUM','PUN','BLR','HYD','CHE','KOL','AHM'],
+  negotiations:[
+    nego('AP-100231','MUM','Rohan K',{make:'Maruti',model:'Baleno',odo:38000,year:2021,inspectionUrl:'https://inspect.cars24/AP-100231'},[
+      e('RA','ask',640000,'NCD first ask',hrs(40)),
+      e('PRICING','offer',560000,'opening offer',hrs(39)),
+      e('RA','counter',615000,'NCD held firm',hrs(38)),
+      e('PRICING','counter',585000,'',hrs(30)),
+    ]),
+    nego('AP-100245','NDL','Aman S',{make:'Hyundai',model:'i20',odo:52000,year:2020,inspectionUrl:'https://inspect.cars24/AP-100245'},[
+      e('RA','ask',580000,'',hrs(5)),
+      e('PRICING','offer',505000,'',hrs(4)),
+      e('RA','counter',548000,'NCD wants quick close',hrs(3)),
+    ]),
+    nego('AP-100250','BLR','Divya R',{make:'Tata',model:'Nexon',odo:21000,year:2022,inspectionUrl:'https://inspect.cars24/AP-100250'},[
+      e('RA','ask',880000,'',hrs(2)),
+    ]),
+    nego('AP-100199','PUN','Karan M',{make:'Honda',model:'City',odo:61000,year:2019,inspectionUrl:'https://inspect.cars24/AP-100199'},[
+      e('RA','ask',720000,'',hrs(52)),
+      e('PRICING','offer',640000,'',hrs(51)),
+      e('RA','counter',690000,'no movement since',hrs(50)),
+    ]),
+    nego('AP-100188','HYD','Sana P',{make:'Kia',model:'Seltos',odo:34000,year:2021,inspectionUrl:'https://inspect.cars24/AP-100188'},[
+      e('RA','ask',1180000,'',hrs(70)),
+      e('PRICING','offer',1050000,'',hrs(69)),
+      e('RA','counter',1120000,'',hrs(68)),
+      e('PRICING','counter',1080000,'',hrs(67)),
+      e('RA','accept',1080000,'deal closed',hrs(66)),
+    ]),
+  ]
+};
+function hrs(h){ return new Date(Date.now()-h*3600*1000).toISOString(); }
+function e(by,type,price,note,ts){ return {by,type,price,note:note||'',ts:ts||new Date().toISOString()}; }
+function nego(appId,region,raOwner,car,history){
+  return {appId,region,raOwner,car,ceiling:null,tp:null,rto:null,ownerNumber:null,history,createdAt:history[0].ts};
+}
+
+/* ---------- derived helpers ---------- */
+function lastOf(n,by){ for(let i=n.history.length-1;i>=0;i--) if(n.history[i].by===by) return n.history[i]; return null; }
+function lastAsk(n){ const a=lastOf(n,'RA'); return a? a.price : null; }
+function lastOffer(n){ const o=lastOf(n,'PRICING'); return o? o.price : null; }
+function lastEntry(n){ return n.history.length ? n.history[n.history.length-1] : null; }
+function lastTs(n){ const le=lastEntry(n); return le ? le.ts : n.createdAt; }
+function rounds(n){ return n.history.filter(h=>h.type!=='accept'&&h.type!=='reject').length; }
+
+function statusOf(n){
+  if(!n.history.length) return 'new';        // imported — awaiting NCD's first ask
+  const le=lastEntry(n);
+  if(le.type==='accept') return 'agreed';
+  if(le.type==='reject') return 'lost';
+  const hasOffer = n.history.some(h=>h.by==='PRICING');
+  if(!hasOffer) return 'ask';            // waiting on first price
+  if(rounds(n)<=2) return 'offer';        // offer made, no counter yet
+  return 'countering';
+}
+function isClosed(n){ const s=statusOf(n); return s==='agreed'||s==='lost'; }
+function whoseTurn(n){
+  if(!n.history.length) return 'RA';          // RA must log the NCD's first ask
+  if(isClosed(n)) return 'NONE';
+  return lastEntry(n).by==='RA' ? 'PRICING' : 'RA';
+}
+function idleMs(n){ return Date.now()-new Date(lastTs(n)).getTime(); }
+function isStale(n){ return !isClosed(n) && idleMs(n)>STALE_MS; }
+function gap(n){ const a=lastAsk(n),o=lastOffer(n); return (a!=null&&o!=null)? a-o : null; }
+
+/* ---------- formatting ---------- */
+function rupee(v){
+  if(v==null) return '—';
+  if(v>=10000000) return '₹'+(v/10000000).toFixed(2)+'Cr';
+  if(v>=100000)   return '₹'+(v/100000).toFixed(2)+'L';
+  return '₹'+v.toLocaleString('en-IN');
+}
+function ago(ts){
+  const m=(Date.now()-new Date(ts).getTime())/60000;
+  if(m<60) return Math.round(m)+'m';
+  const h=m/60; if(h<24) return h.toFixed(0)+'h';
+  return (h/24).toFixed(0)+'d';
+}
+const STATUS_LABEL={new:'Awaiting NCD ask',ask:'Awaiting price',offer:'Offer sent',countering:'Negotiating',agreed:'Agreed',lost:'Lost'};
+
+/* ---------- persistence ---------- */
+async function load(){
+  setSync('busy','loading…');
+  try{
+    const r=await fetch(API,{cache:'no-store'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    const d=await r.json();
+    if(d && Array.isArray(d.negotiations) && d.negotiations.length){
+      state=d; if(!state.regions||!state.regions.length) state.regions=SEED.regions;
+    } else {
+      state=structuredClone(SEED);              // backend empty → seed it
+      await save(true);
+    }
+    setSync('ok','synced '+(state.meta.lastUpdated?ago(state.meta.lastUpdated)+' ago':''));
+  }catch(err){
+    state=structuredClone(SEED);
+    setSync('err','offline — local only');
+    console.warn('load failed, using seed:',err);
+  }
+  buildRegionOptions(); render();
+}
+let saveTimer=null;
+function save(immediate){
+  clearTimeout(saveTimer);
+  const go=async()=>{
+    setSync('busy','saving…');
+    try{
+      const r=await fetch(API,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(state)});
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      const d=await r.json(); if(d&&d.lastUpdated) state.meta.lastUpdated=d.lastUpdated;
+      setSync('ok','saved just now');
+    }catch(err){ setSync('err','save failed — retry'); console.warn('save failed:',err); }
+  };
+  if(immediate) return go();
+  saveTimer=setTimeout(go,500);
+}
+function setSync(cls,txt){
+  const d=document.getElementById('syncDot'); d.className='dot '+(cls==='busy'?'busy':cls==='err'?'err':'ok');
+  document.getElementById('syncTxt').textContent=txt;
+}
+
+/* ---------- email notification on price update ---------- */
+function notify(nego, entry){
+  let event=null;
+  if(entry.by==='RA' && (entry.type==='ask'||entry.type==='counter')) event='ncd_price';        // NCD price → price manager
+  else if(entry.by==='PRICING' && (entry.type==='offer'||entry.type==='counter')) event='pricing_response'; // pricing → RA
+  if(!event) return;   // accept/reject etc. don't trigger mail
+  fetch('/api/notify',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
+    event, appId:nego.appId, region:nego.region, raOwner:nego.raOwner||'', raEmail:nego.raEmail||'',
+    car:`${nego.car.make} ${nego.car.model} ${nego.car.year}`,
+    price:entry.price, tp:nego.tp, ask:lastAsk(nego), offer:lastOffer(nego), gap:gap(nego),
+    appUrl:location.origin
+  })}).then(r=>r.json()).then(d=>{
+    if(d&&d.sent) toast(`Email sent → ${d.to}`);
+    else if(d&&d.skipped) toast(`Email skipped: ${d.skipped}`);
+    else if(d&&d.error) toast(`Email error: ${d.error}`);
+  }).catch(()=>{ /* network issue — entry already saved, mail is best-effort */ });
+}
+
+/* ---------- render ---------- */
+function visible(){
+  return state.negotiations.filter(n=>{
+    if(view.region!=='ALL' && n.region!==view.region) return false;
+    if(view.raName!=='ALL' && (n.raOwner||'')!==view.raName) return false;
+    if(view.insDate!=='ALL' && (n.inspectionDate||'')!==view.insDate) return false;
+    if(view.role==='RA'      && whoseTurn(n)!=='RA')      return false;
+    if(view.role==='PRICING' && whoseTurn(n)!=='PRICING') return false;
+    return true;
+  });
+}
+function buildDynamicFilters(){
+  const ras=[...new Set(state.negotiations.map(n=>n.raOwner).filter(Boolean))].sort();
+  const dates=[...new Set(state.negotiations.map(n=>n.inspectionDate).filter(Boolean))].sort().reverse();
+  const raF=document.getElementById('raFilter'), dF=document.getElementById('dateFilter');
+  if(raF){ if(!ras.includes(view.raName)) view.raName='ALL';
+    raF.innerHTML='<option value="ALL">All RAs</option>'+ras.map(r=>`<option ${r===view.raName?'selected':''}>${r}</option>`).join(''); }
+  if(dF){ if(!dates.includes(view.insDate)) view.insDate='ALL';
+    dF.innerHTML='<option value="ALL">All inspection dates</option>'+dates.map(d=>`<option ${d===view.insDate?'selected':''}>${d}</option>`).join(''); }
+}
+function render(){ buildDynamicFilters(); renderKpis(); renderRows(); renderDetail(); renderDigest(); }
+
+function renderKpis(){
+  const ns=state.negotiations;
+  const open=ns.filter(n=>!isClosed(n)).length;
+  const yourTurnP=ns.filter(n=>whoseTurn(n)==='PRICING').length;
+  const yourTurnR=ns.filter(n=>whoseTurn(n)==='RA').length;
+  const stale=ns.filter(isStale).length;
+  const agreed=ns.filter(n=>statusOf(n)==='agreed').length;
+  const lost=ns.filter(n=>statusOf(n)==='lost').length;
+  const k=[
+    {l:'Open',v:open},
+    {l:'Pricing to act',v:yourTurnP,c:'amber'},
+    {l:'RA to act',v:yourTurnR,c:'amber'},
+    {l:'Stale > 24h',v:stale,c:stale?'warn':''},
+    {l:'Agreed',v:agreed,c:'good'},
+    {l:'Lost',v:lost},
+  ];
+  document.getElementById('kpis').innerHTML=k.map(x=>
+    `<div class="kpi ${x.c||''}"><div class="v">${x.v}</div><div class="l">${x.l}</div></div>`).join('');
+}
+
+function renderRows(){
+  const rows=visible().sort((a,b)=>{
+    const sa=isStale(a),sb=isStale(b); if(sa!==sb) return sb-sa;       // stale first
+    const ca=isClosed(a),cb=isClosed(b); if(ca!==cb) return ca-cb;     // open before closed
+    return idleMs(b)-idleMs(a);                                        // longest idle first
+  });
+  const tb=document.getElementById('rows');
+  document.getElementById('listCount').textContent=rows.length+' shown';
+  document.getElementById('emptyList').style.display=rows.length?'none':'block';
+  tb.innerHTML=rows.map(n=>{
+    const st=statusOf(n), t=whoseTurn(n), g=gap(n), stale=isStale(n);
+    return `<tr data-id="${n.appId}" class="${view.selected===n.appId?'sel':''}">
+      <td><div class="appid">${n.appId}</div><div class="car">${n.car.make} ${n.car.model} ${n.car.year}</div></td>
+      <td><span class="mono" style="font-size:12px">${n.region||'—'}</span></td>
+      <td><span class="pill ${st}">${STATUS_LABEL[st]}</span></td>
+      <td class="num">${rupee(lastAsk(n))} <span style="color:var(--ink-faint)">| ${rupee(n.tp)}</span></td>
+      <td class="num">${rupee(lastOffer(n))} <span style="color:var(--ink-faint)">| ${rupee(n.tp)}</span></td>
+      <td class="num gap-cell">${g!=null?rupee(g):'—'}</td>
+      <td class="num">${rounds(n)}</td>
+      <td><span class="turn ${t.toLowerCase()}">${t==='NONE'?'—':t}</span></td>
+      <td class="num"><span class="age ${stale?'stale':''}">${isClosed(n)?'—':ago(lastTs(n))}</span></td>
+    </tr>`;
+  }).join('');
+  tb.querySelectorAll('tr').forEach(tr=>tr.onclick=()=>{view.selected=tr.dataset.id;render();});
+}
+
+function renderDetail(){
+  const d=document.getElementById('detail');
+  const n=state.negotiations.find(x=>x.appId===view.selected);
+  if(!n){ d.innerHTML='<div class="d-empty">Select a negotiation to see its history and respond.</div>'; return; }
+  const st=statusOf(n), t=whoseTurn(n), g=gap(n);
+  const ladder=n.history.length ? n.history.map((h,i)=>{
+    const prevSame = [...n.history].slice(0,i).reverse().find(x=>x.by===h.by);
+    const delta = prevSame ? h.price-prevSame.price : null;
+    const side = h.by==='RA'?'ra':'pricing';
+    const who = h.by==='RA' ? 'NCD via RA' : 'Pricing';
+    const dStr = delta!=null ? (delta>0?'+':'')+rupee(Math.abs(delta)).replace('₹',delta>0?'+₹':'−₹') : '';
+    return `<div class="step ${side}"><div class="bubble">
+        <div class="who">${who}${h.type==='accept'?' · ACCEPTED':h.type==='reject'?' · WALKED':''}</div>
+        <div class="price">${rupee(h.price)} ${delta!=null?`<span class="delta">${dStr}</span>`:''}</div>
+        ${h.note?`<div class="note">"${h.note}"</div>`:''}
+      </div><div class="ts">${ago(h.ts)} ago</div></div>`;
+  }).join('') : `<div style="color:var(--ink-faint);font-size:12px;padding:6px 0 2px">No prices yet — RA logs the NCD’s first ask to start the negotiation.</div>`;
+
+  let actionHtml;
+  if(isClosed(n)){
+    actionHtml=`<div class="turn-banner none">${st==='agreed'?'✓ Deal agreed at '+rupee(lastEntry(n).price):'Negotiation closed — lost'}</div>`;
+  }else{
+    const isRA = t==='RA';
+    const side = isRA?'ra':'pricing';
+    const firstAsk = n.history.length===0;
+    const label = isRA ? (firstAsk ? 'RA — log the NCD’s first ask price' : 'RA to enter NCD’s counter') : 'Pricing to enter our offer';
+    actionHtml=`
+      <div class="turn-banner ${side}">${isStale(n)?'⚠ Idle '+ago(lastTs(n))+' — ':''}${label}</div>
+      <textarea class="note-in" id="d_note" rows="1" placeholder="optional note (e.g. NCD reason, urgency)"></textarea>
+      <div class="entry-row">
+        <input class="price" id="d_price" placeholder="${isRA?'NCD price ₹':'our price ₹'}" inputmode="numeric">
+        <button class="submit ${side}" id="d_submit">${isRA?(firstAsk?'Log first ask':'Log NCD price'):'Send our price'}</button>
+      </div>
+      ${t==='PRICING'?`<div class="ceiling-row">Walk-away ceiling
+        <input id="d_ceiling" class="mono" value="${n.ceiling||''}" placeholder="₹ internal">
+        <span class="hint-internal">internal only — never sent</span></div>`:''}
+      ${!firstAsk?`<div class="close-row">
+        <button class="agree" id="d_agree">✓ Mark agreed</button>
+        <button class="lose" id="d_lose">Mark lost</button>
+      </div>`:''}`;
+  }
+
+  d.innerHTML=`
+    <div class="d-head">
+      <div><div class="d-appid">${n.appId}</div>
+        <div class="d-car">${n.car.make} ${n.car.model} ${n.car.year} · ${n.car.odo?(''+n.car.odo).replace(/\B(?=(\d{3})+(?!\d))/g,',')+' km':'? km'}</div></div>
+      <span class="pill ${st}">${STATUS_LABEL[st]}</span>
+    </div>
+    <div class="d-meta">
+      <span>Region <b>${n.region||'—'}</b></span><span>RA <b>${n.raOwner||'—'}</b></span>
+      ${n.rto?`<span>RTO <b>${n.rto}</b></span>`:''}
+      ${n.inspectionDate?`<span>Inspected <b>${n.inspectionDate}</b></span>`:''}
+      ${n.ownerNumber?`<span>NCD owner <b>${n.ownerNumber}</b></span>`:''}
+      <span>Rounds <b>${rounds(n)}</b></span>
+      ${n.car.inspectionUrl?`<span><a href="${n.car.inspectionUrl}" target="_blank" rel="noopener" style="color:var(--ra);font-weight:600;text-decoration:underline">Inspection report ↗</a></span>`:''}
+    </div>
+    ${n.tp?`<div class="gap-banner"><span class="lab">Target Price (internal)</span><span class="val">${rupee(n.tp)}</span></div>`:''}
+    ${g!=null?`<div class="gap-banner"><span class="lab">Current gap (ask − offer)</span><span class="val">${rupee(g)}</span></div>`:''}
+    <div class="sec-h">History</div>
+    <div class="ladder">${ladder}</div>
+    <div class="actions">${actionHtml}</div>`;
+
+  // wire actions
+  const sub=document.getElementById('d_submit');
+  if(sub) sub.onclick=()=>{
+    const raw=document.getElementById('d_price').value.replace(/[^0-9]/g,'');
+    if(!raw){ toast('Enter a price'); return; }
+    const type = n.history.length===0 ? 'ask' : (t==='RA'?'counter':'offer');
+    addEntry(n, t==='RA'?'RA':'PRICING', type, +raw, document.getElementById('d_note').value.trim());
+  };
+  const ceil=document.getElementById('d_ceiling');
+  if(ceil) ceil.onchange=()=>{ n.ceiling=ceil.value.replace(/[^0-9]/g,'')||null; save(); };
+  const ag=document.getElementById('d_agree');
+  if(ag) ag.onclick=()=>{ const o=lastOffer(n)??lastAsk(n); addEntry(n,'PRICING','accept',o,'deal closed'); };
+  const lo=document.getElementById('d_lose');
+  if(lo) lo.onclick=()=>{ addEntry(n,'PRICING','reject',lastEntry(n).price,'walked away'); };
+}
+
+function renderDigest(){
+  const stale=state.negotiations.filter(isStale);
+  const byRegion={};
+  stale.forEach(n=>{ (byRegion[n.region]=byRegion[n.region]||[]).push(n); });
+  const regions=Object.keys(byRegion).sort();
+  const el=document.getElementById('digest');
+  el.innerHTML=`
+    <div class="digest-h"><span>Daily stale sweep — would notify <span class="cnt">${regions.length}</span> region group${regions.length===1?'':'s'} (${stale.length} app IDs idle &gt; 24h)</span></div>
+    ${regions.length? `<div class="digest-body">${regions.map(r=>`
+        <div class="digest-region"><div class="rn">${r} group</div>
+          <div class="ids">${byRegion[r].map(n=>`${n.appId} (${ago(lastTs(n))}, ${whoseTurn(n)} to act)`).join(' · ')}</div></div>`).join('')}</div>`
+      : `<div class="digest-empty">Nothing stale — every open negotiation moved in the last 24h.</div>`}`;
+}
+
+/* ---------- mutations ---------- */
+function addEntry(n, by, type, price, note){
+  n.history.push({by,type,price,note:note||'',ts:new Date().toISOString()});
+  render(); save(); notify(n, n.history[n.history.length-1]);
+}
+function createNego(){
+  const appId=document.getElementById('f_appid').value.trim();
+  const ask=document.getElementById('f_ask').value.replace(/[^0-9]/g,'');
+  if(!appId){ toast('App ID required'); return; }
+  if(state.negotiations.some(x=>x.appId===appId)){ toast('App ID already exists'); return; }
+  if(!ask){ toast('NCD ask required'); return; }
+  const n={
+    appId, region:document.getElementById('f_region').value,
+    raOwner:document.getElementById('f_ra').value.trim(), raEmail:val('f_raemail')||null, ceiling:null,
+    tp: val('f_tp')? +val('f_tp').replace(/[^0-9]/g,'') : null,
+    rto: val('f_rto')||null, ownerNumber: val('f_owner')||null,
+    inspectionDate: val('f_inspdate')||null,
+    car:{make:val('f_make'),model:val('f_model'),odo:val('f_odo'),year:val('f_year'),inspectionUrl:val('f_inspection')},
+    history:[{by:'RA',type:'ask',price:+ask,note:'NCD first ask',ts:new Date().toISOString()}],
+    createdAt:new Date().toISOString()
+  };
+  state.negotiations.push(n);
+  view.selected=appId; closeModal(); render(); save();
+  notify(n,n.history[0]);
+}
+const val=id=>document.getElementById(id).value.trim();
+
+/* ---------- bulk CSV import ---------- */
+const COLMAP={appointmentid:'appId',region:'region',raname:'raOwner',raemail:'raEmail',make:'make',model:'model',year:'year',odometerreading:'odo',inspectiondate:'inspectionDate',rtocode:'rto',ownernumber:'ownerNumber',targetprice:'tp'};
+const normHdr=s=>String(s||'').trim().toLowerCase().replace(/[\s_]+/g,'');
+let impText=null, pendingImport=null;
+
+function parseCSV(text){
+  const rows=[]; let field='',row=[],inQ=false;
+  text=String(text).replace(/\r\n/g,'\n').replace(/\r/g,'\n');
+  for(let i=0;i<text.length;i++){
+    const c=text[i];
+    if(inQ){
+      if(c==='"'){ if(text[i+1]==='"'){field+='"';i++;} else inQ=false; }
+      else field+=c;
+    } else if(c==='"'){ inQ=true; }
+    else if(c===','){ row.push(field); field=''; }
+    else if(c==='\n'){ row.push(field); rows.push(row); row=[]; field=''; }
+    else field+=c;
+  }
+  if(field.length||row.length){ row.push(field); rows.push(row); }
+  return rows.filter(r=>!(r.length===1 && r[0].trim()===''));
+}
+
+function processImport(text){
+  const rows=parseCSV(text);
+  if(rows.length<2) return {fatal:'File is empty or has no data rows.'};
+  const header=rows[0].map(normHdr);
+  const idx={}; Object.keys(COLMAP).forEach(k=>idx[k]=header.indexOf(k));
+  if(idx.appointmentid<0) return {fatal:'No "Appointmentid" column found in the file header.'};
+  const existing=new Set(state.negotiations.map(x=>x.appId));
+  const seen=new Set(), results=[], newRecords=[];
+  const num=v=>{ const d=String(v||'').replace(/[^0-9]/g,''); return d?+d:null; };
+  const cell=(row,k)=> idx[k]>=0 ? String(row[idx[k]]||'').trim() : '';
+  for(let r=1;r<rows.length;r++){
+    const row=rows[r];
+    const appId=cell(row,'appointmentid');
+    if(!appId){ results.push({appId:`(row ${r+1})`,result:'Error',comment:'missing Appointment ID'}); continue; }
+    if(seen.has(appId)){ results.push({appId,result:'Skipped',comment:'duplicate within file'}); continue; }
+    seen.add(appId);
+    if(existing.has(appId)){ results.push({appId,result:'Skipped',comment:'already in tracker'}); continue; }
+    const region=cell(row,'region');
+    newRecords.push({
+      appId, region:region||'', raOwner:cell(row,'raname')||'', raEmail:cell(row,'raemail')||null, ceiling:null,
+      tp:num(cell(row,'targetprice')), rto:cell(row,'rtocode')||null, ownerNumber:cell(row,'ownernumber')||null,
+      inspectionDate:cell(row,'inspectiondate')||null,
+      car:{make:cell(row,'make'),model:cell(row,'model'),odo:num(cell(row,'odometerreading')),year:cell(row,'year'),inspectionUrl:''},
+      history:[], createdAt:new Date().toISOString()
+    });
+    results.push({appId,result:'Imported',comment: region ? 'awaiting NCD ask' : 'awaiting NCD ask (region blank)'});
+  }
+  return {results,newRecords};
+}
+
+function reparseImport(){
+  const el=document.getElementById('imp_summary');
+  const commit=document.getElementById('commitImport');
+  if(!impText){ el.style.display='none'; commit.disabled=true; pendingImport=null; return; }
+  const p=processImport(impText);
+  pendingImport=p; el.style.display='block';
+  if(p.fatal){ el.className='imp-summary err'; el.textContent='⚠ '+p.fatal; commit.disabled=true; return; }
+  const imp=p.results.filter(r=>r.result==='Imported').length;
+  const skip=p.results.filter(r=>r.result==='Skipped').length;
+  const err=p.results.filter(r=>r.result==='Error').length;
+  const noReg=p.newRecords.filter(n=>!n.region).length;
+  el.className='imp-summary';
+  el.innerHTML=`<b>${imp}</b> new to import · <b>${skip}</b> skipped (exists / duplicate) · <b>${err}</b> error rows.${noReg?`<div class="imp-note">${noReg} row${noReg===1?'':'s'} have no region value — they'll import but won't route by region.</div>`:''}`;
+  commit.disabled = p.results.length===0;
+}
+
+function csvCell(v){ v=String(v==null?'':v); return /[",\n]/.test(v)?'"'+v.replace(/"/g,'""')+'"':v; }
+function downloadText(filename, text){
+  const blob=new Blob([text],{type:'text/csv;charset=utf-8'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  a.href=url; a.download=filename;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
+}
+function downloadSample(){
+  const headers=['Appointmentid','region','RA name','RA email','make','model','year','odometer reading','inspection date','rto_code','owner number','Target Price'];
+  const example=['AP-200001','MUM','Rohan K','rohan.k@cars24.com','Maruti','Swift','2021','38000','2026-06-08','MH12','9876543210','525000'];
+  downloadText('inspection-import-template.csv', headers.join(',')+'\n'+example.join(',')+'\n');
+}
+function downloadReport(results){
+  const csv='Appointmentid,Result,Comment\n'+results.map(r=>[r.appId,r.result,r.comment].map(csvCell).join(',')).join('\n');
+  downloadText('import-report-'+new Date().toISOString().slice(0,19).replace(/[:T]/g,'-')+'.csv', csv);
+}
+
+function commitImport(){
+  if(!pendingImport || pendingImport.fatal) return;
+  const {results,newRecords}=pendingImport;
+  if(newRecords.length){ state.negotiations.push(...newRecords); render(); save(); }
+  downloadReport(results);
+  toast(`Imported ${newRecords.length} · report downloaded`);
+  closeImport();
+}
+
+/* ---------- UI plumbing ---------- */
+function buildRegionOptions(){
+  const rf=document.getElementById('regionFilter'), fr=document.getElementById('f_region');
+  const opts=state.regions.map(r=>`<option>${r}</option>`).join('');
+  rf.innerHTML='<option value="ALL">All regions</option>'+opts;
+  fr.innerHTML=opts;
+}
+document.getElementById('roleSeg').onclick=ev=>{
+  const b=ev.target.closest('button'); if(!b) return;
+  view.role=b.dataset.role;
+  [...ev.currentTarget.children].forEach(x=>x.classList.toggle('on',x===b));
+  document.getElementById('listTitle').textContent =
+    view.role==='RA'?'RA — your turn to enter NCD price':view.role==='PRICING'?'Pricing — your turn to quote':'Open negotiations';
+  render();
+};
+document.getElementById('regionFilter').onchange=e=>{view.region=e.target.value;render();};
+document.getElementById('raFilter').onchange=e=>{view.raName=e.target.value;render();};
+document.getElementById('dateFilter').onchange=e=>{view.insDate=e.target.value;render();};
+document.getElementById('syncBtn').onclick=()=>load();
+document.getElementById('newBtn').onclick=openModal;
+document.getElementById('closeModal').onclick=closeModal;
+document.getElementById('cancelModal').onclick=closeModal;
+document.getElementById('saveModal').onclick=createNego;
+
+document.getElementById('importBtn').onclick=openImport;
+document.getElementById('closeImport').onclick=closeImport;
+document.getElementById('cancelImport').onclick=closeImport;
+document.getElementById('commitImport').onclick=commitImport;
+document.getElementById('sampleBtn').onclick=downloadSample;
+document.getElementById('imp_file').onchange=ev=>{
+  const f=ev.target.files[0];
+  if(!f){ impText=null; reparseImport(); return; }
+  const fr=new FileReader();
+  fr.onload=()=>{ impText=fr.result; reparseImport(); };
+  fr.onerror=()=>toast('Could not read file');
+  fr.readAsText(f);
+};
+function openImport(){ impText=null; pendingImport=null; document.getElementById('imp_file').value=''; document.getElementById('imp_summary').style.display='none'; document.getElementById('commitImport').disabled=true; document.getElementById('importOverlay').classList.add('on'); }
+function closeImport(){ document.getElementById('importOverlay').classList.remove('on'); }
+
+function openModal(){document.getElementById('overlay').classList.add('on');document.getElementById('f_appid').focus();}
+function closeModal(){
+  document.getElementById('overlay').classList.remove('on');
+  ['f_appid','f_ra','f_raemail','f_make','f_model','f_year','f_odo','f_inspdate','f_inspection','f_rto','f_owner','f_tp','f_ask'].forEach(id=>document.getElementById(id).value='');
+}
+let toastT=null;
+function toast(msg){
+  const t=document.getElementById('toast'); t.innerHTML=`<span class="ico">●</span>${msg}`;
+  t.classList.add('on'); clearTimeout(toastT); toastT=setTimeout(()=>t.classList.remove('on'),2600);
+}
+
+load();
+</script>
+</body>
+</html>
