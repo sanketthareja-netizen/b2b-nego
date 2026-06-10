@@ -1,8 +1,23 @@
-/* Email notifier for the Negotiation Desk.
+/* Email notifier for the Negotiation Desk — sends via Gmail SMTP (nodemailer).
    POST { event, appId, region, raOwner, raEmail, car, price, tp, ask, offer, gap, appUrl }
    - event 'ncd_price'        → RA logged an NCD price  → email the PRICE MANAGER
-   - event 'pricing_response'  → Pricing quoted a price  → email the car's RA
-   Env: RESEND_API_KEY (required), PRICE_MANAGER_EMAIL (required for ncd_price), MAIL_FROM (recommended). */
+   - event 'pricing_response' → Pricing quoted a price  → email the car's RA
+   Env: GMAIL_USER (the gmail address), GMAIL_APP_PASSWORD (16-char app password),
+        PRICE_MANAGER_EMAIL (required for ncd_price), MAIL_FROM_NAME (optional display name). */
+
+import nodemailer from 'nodemailer';
+
+let transporter = null;
+function getTransporter() {
+  if (transporter) return transporter;
+  const user = process.env.GMAIL_USER, pass = process.env.GMAIL_APP_PASSWORD;
+  if (!user || !pass) return null;
+  transporter = nodemailer.createTransport({
+    host: 'smtp.gmail.com', port: 465, secure: true,
+    auth: { user, pass: pass.replace(/\s+/g, '') }   // app passwords are shown with spaces; strip them
+  });
+  return transporter;
+}
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*');
@@ -12,16 +27,15 @@ export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
 
   try {
-    // robust body read
     let body = req.body;
     if (!(body && typeof body === 'object')) {
       if (typeof body === 'string' && body.length) body = JSON.parse(body);
       else { const ch = []; for await (const c of req) ch.push(c); const raw = Buffer.concat(ch).toString('utf8'); body = raw ? JSON.parse(raw) : {}; }
     }
 
-    const key = process.env.RESEND_API_KEY;
-    const from = process.env.MAIL_FROM || 'Negotiation Desk <onboarding@resend.dev>';
-    if (!key) return res.status(500).json({ error: 'RESEND_API_KEY not set — add it in Vercel env.' });
+    const tx = getTransporter();
+    if (!tx) return res.status(500).json({ error: 'GMAIL_USER / GMAIL_APP_PASSWORD not set — add them in Vercel env.' });
+    const from = `${process.env.MAIL_FROM_NAME || 'Negotiation Desk'} <${process.env.GMAIL_USER}>`;
 
     let to, subject, html;
     if (body.event === 'ncd_price') {
@@ -38,13 +52,7 @@ export default async function handler(req, res) {
       return res.status(400).json({ error: 'unknown event' });
     }
 
-    const send = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { 'Authorization': `Bearer ${key}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from, to, subject, html })
-    });
-    const data = await send.json();
-    if (!send.ok) { console.error('resend error:', data); return res.status(502).json({ error: data && data.message ? data.message : 'send failed' }); }
+    await tx.sendMail({ from, to, subject, html });
     return res.status(200).json({ sent: true, to });
   } catch (e) {
     console.error('notify FAILED:', e && e.stack ? e.stack : e);
